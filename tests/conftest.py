@@ -12,7 +12,11 @@ class FakeMessenger:
         self.sent = []  # (user_id, text)
         self.buttons = []  # (user_id, rows) per send carrying buttons
         self.answered = []  # (callback_id, text, outcome)
+        self.menus = []  # (user_id or None, names)
         self.fail = False
+
+    def set_commands(self, commands, user_id=None):
+        self.menus.append((user_id, [n for n, _ in commands]))
 
     def send(self, user_id, text, buttons=None):
         if self.fail:

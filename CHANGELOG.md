@@ -3,6 +3,13 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.2] - 2026-10-14
+
+### Added
+
+- Command menu on both bots: `start` for everyone, the admin commands in
+  the admin's Telegram chat only. A typed `/start` on Max counts as Start.
+
 ## [0.1.1] - 2026-10-14
 
 ### Added

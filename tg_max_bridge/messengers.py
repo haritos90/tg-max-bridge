@@ -54,6 +54,13 @@ class Telegram:
                 events.append(event)
         return events
 
+    def set_commands(self, commands, user_id=None):
+        """commands: (name, description) pairs; user_id scopes them to one chat."""
+        body = {"commands": [{"command": n, "description": d} for n, d in commands]}
+        if user_id is not None:
+            body["scope"] = {"type": "chat", "chat_id": user_id}
+        self.client.post("/setMyCommands", body)
+
     def send(self, user_id, text, buttons=None):
         """buttons: rows of (label, payload); returns the message id."""
         body = {"chat_id": user_id, "text": text}
@@ -123,6 +130,13 @@ class Max:
                 events.append(event)
         return events
 
+    def set_commands(self, commands, user_id=None):
+        # Max has no per-chat scope; the menu is global.
+        if user_id is not None:
+            return
+        self.client.patch("/me/commands", {"commands": [
+            {"name": n, "description": d} for n, d in commands]})
+
     def send(self, user_id, text, buttons=None):
         # Buttons are a Telegram-side feature for now.
         self.client.post("/messages", {"text": text}, {"user_id": user_id})
@@ -144,13 +158,15 @@ def parse_max(upd):
     if (msg.get("recipient") or {}).get("chat_type") != "dialog" or not user:
         return None
     body = msg.get("body") or {}
+    text = body.get("text") or None
     return Inbound(
         messenger=MAX,
         user_id=user["user_id"],
-        text=body.get("text") or None,
+        text=None if text == "/start" else text,
         has_attachments=bool(body.get("attachments")),
         username=user.get("username"),
         name=_max_name(user),
+        started=text == "/start",
     )
 
 

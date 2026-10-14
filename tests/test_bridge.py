@@ -225,3 +225,20 @@ def test_status_and_startup_resend_waiting_requests(world):
     bridge.handle(Inbound(TG, 100, "/status"))
     requests = [t for _, t in tg.sent if t.startswith("Request #1: Anna (id 2000)")]
     assert len(requests) == 3 and len(tg.buttons) == 3
+
+
+def test_menus_start_for_all_and_admin_set_in_admin_chat(world):
+    bridge, tg, mx, state = world
+    bridge.publish_menus()
+    assert tg.menus[0] == (None, ["start"]) and mx.menus == [(None, ["start"])]
+    assert tg.menus[1][0] == 100 and "approve" in tg.menus[1][1]
+
+
+def test_admin_menu_published_on_binding(world):
+    bridge, tg, mx, state = world
+    del bridge.cfg.fixed[(TG, 1)]
+    bridge.cfg.tg_usernames[1] = "owner"
+    bridge.publish_menus()
+    assert tg.menus == [(None, ["start"])]
+    bridge.handle(Inbound(TG, 300, "hi", username="owner"))
+    assert tg.menus[-1][0] == 300

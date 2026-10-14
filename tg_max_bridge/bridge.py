@@ -12,6 +12,16 @@ ADMIN_SLOT = 1
 SLOTS = (1, 2)
 WHO = {1: "user 1, the admin", 2: "user 2, the other person"}
 
+USER_COMMANDS = [("start", "Connect to the bridge")]
+ADMIN_COMMANDS = USER_COMMANDS + [
+    ("status", "Who is connected and who is waiting"),
+    ("approve", "Connect a waiting account"),
+    ("deny", "Ignore a waiting account"),
+    ("unbind", "Forget a connected account"),
+    ("bots", "The two bot accounts"),
+    ("help", "The command list"),
+]
+
 HELP = (
     "/status  who is connected and who is waiting\n"
     "/approve <request>  connect the account to the free seat\n"
@@ -54,6 +64,24 @@ class Bridge:
     def pending(self):
         """number -> Request, rebuilt from the state file."""
         return {n: request_from_state(n, rec) for n, rec in self.state.pending.items()}
+
+    def publish_menus(self):
+        """Start for everyone; the admin commands in the admin's Telegram chat."""
+        for m in self.messengers.values():
+            try:
+                m.set_commands(USER_COMMANDS)
+            except Exception as e:
+                log.error("%s menu failed: %s", m.name, e)
+        self._publish_admin_menu()
+
+    def _publish_admin_menu(self):
+        admin = self.slots(TG).get(ADMIN_SLOT)
+        if admin is None:
+            return
+        try:
+            self.messengers[TG].set_commands(ADMIN_COMMANDS, admin)
+        except Exception as e:
+            log.error("admin menu failed: %s", e)
 
     def resend_pending(self):
         """Waiting requests to the admin: after a restart or on /status."""
@@ -122,7 +150,8 @@ class Bridge:
             if ev.username.lower() == name:
                 self.state.bind(TG, slot, ev.user_id)
                 self._reply(ev, "You are connected as %s." % WHO[slot])
-                if slot == ADMIN_SLOT and self.pending:
+                if slot == ADMIN_SLOT:
+                    self._publish_admin_menu()
                     # Requests that waited for the admin.
                     for req in list(self.pending.values()):
                         self._notify_admin(req)
@@ -221,6 +250,8 @@ class Bridge:
         target = req.event
         self.state.bind(target.messenger, slot, target.user_id)
         self.state.drop_request(req.number)
+        if (target.messenger, slot) == (TG, ADMIN_SLOT):
+            self._publish_admin_menu()
         self._reply(target, "You are connected as %s." % WHO[slot])
         return "%s on %s is now %s." % (describe(target), LABELS[target.messenger], WHO[slot])
 

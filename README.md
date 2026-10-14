@@ -51,7 +51,9 @@ messenger:
 | `/bots` | The usernames of the two bot accounts |
 | `/help` | The command list |
 
-On Telegram a request arrives with buttons, so the commands are a fallback.
+Both bots publish a command menu at startup: `start` for everyone, and on
+Telegram the admin commands in the admin's chat only. On Telegram a request
+arrives with buttons, so the commands are a fallback.
 When one seat on the account's messenger is already taken, the message
 offers Connect and Ignore and the account takes the free seat. When both
 seats are free, it asks whether the account is the admin's own, with the

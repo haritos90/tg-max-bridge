@@ -38,6 +38,9 @@ class JsonClient:
     def post(self, path, payload, params=None):
         return self._request("POST", path, params, payload, None)
 
+    def patch(self, path, payload, params=None):
+        return self._request("PATCH", path, params, payload, None)
+
     def _request(self, method, path, params, payload, timeout):
         url = self.base_url + path
         if params:
