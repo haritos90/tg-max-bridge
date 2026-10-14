@@ -266,7 +266,8 @@ class Bridge:
         if (target.messenger, slot) == (TG, ADMIN_SLOT):
             self._publish_admin_menu()
         self._reply(target, "You are connected as %s." % WHO[slot])
-        return "%s on %s is now %s." % (describe(target), LABELS[target.messenger], WHO[slot])
+        return "%s on %s is now %s.\n\n%s" % (
+            describe(target), LABELS[target.messenger], WHO[slot], self._table())
 
     def _deny(self, req):
         target = req.event
@@ -296,14 +297,17 @@ class Bridge:
             return None
         return self.pending[int(args[0])]
 
-    def _status(self):
+    def _table(self):
+        """One row per user, a checkbox per messenger."""
         lines = []
-        for m in (TG, MAX):
-            slots = self.slots(m)
-            for slot in SLOTS:
-                uid = slots.get(slot)
-                lines.append("%s, %s: %s" % (
-                    LABELS[m], WHO[slot], "id %d" % uid if uid else "not connected"))
+        for slot in SLOTS:
+            marks = "   ".join("%s %s" % (LABELS[m], "\u2611" if slot in self.slots(m) else "\u2610")
+                               for m in (TG, MAX))
+            lines.append("%s:  %s" % (WHO[slot], marks))
+        return "\n".join(lines)
+
+    def _status(self):
+        lines = [self._table()]
         if not self.pending:
             lines.append("No one is waiting.")
         for req in self.pending.values():

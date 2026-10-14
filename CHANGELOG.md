@@ -3,6 +3,13 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.6] - 2026-10-14
+
+### Changed
+
+- An approval and `/status` show a connection table: one row per user, a
+  checkbox per messenger.
+
 ## [0.1.5] - 2026-10-14
 
 ### Changed

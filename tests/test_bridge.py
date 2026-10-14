@@ -67,7 +67,9 @@ def test_request_for_last_seat_offers_connect_only(world):
     assert tg.buttons == [(100, [[("Connect", "approve:1:2"), ("Ignore", "deny:1")]])]
     bridge.handle(Inbound(TG, 100, "/approve 1"))
     assert state.bindings[MAX] == {1: 1000, 2: 2000}
-    assert tg.sent[-1] == (100, "Anna (id 2000) on Max is now user 2, the other person.")
+    assert tg.sent[-1] == (100, "Anna (id 2000) on Max is now user 2, the other person.\n\n"
+                                "user 1, the admin:  Telegram \u2611   Max \u2611\n"
+                                "user 2, the other person:  Telegram \u2610   Max \u2611")
     assert mx.sent[-1] == (2000, "You are connected as user 2, the other person.")
 
 
@@ -76,7 +78,8 @@ def test_button_press_applies_and_edits(world):
     bridge.handle(Inbound(MAX, 2000, None, name="Anna", started=True))
     bridge.handle(Inbound(TG, 100, None, callback="approve:1:2", callback_id="c1", message_id=9))
     assert state.bindings[MAX] == {2: 2000}
-    assert tg.answered == [("c1", "Done", "Anna (id 2000) on Max is now user 2, the other person.")]
+    assert tg.answered[0][:2] == ("c1", "Done")
+    assert tg.answered[0][2].startswith("Anna (id 2000) on Max is now user 2, the other person.\n\n")
     assert mx.sent[-1] == (2000, "You are connected as user 2, the other person.")
     bridge.handle(Inbound(TG, 100, None, callback="approve:1:2", callback_id="c2", message_id=9))
     assert tg.answered[-1] == ("c2", "This request is already handled.", "Already handled.")
@@ -123,7 +126,7 @@ def test_deny_silences_the_account(world):
 def test_bad_request_number_shows_status(world):
     bridge, tg, mx, state = world
     bridge.handle(Inbound(TG, 100, "/deny 9"))
-    assert tg.sent[-1][1].startswith("No such request.\nTelegram, user 1, the admin: id 100")
+    assert tg.sent[-1][1].startswith("No such request.\nuser 1, the admin:  Telegram \u2611   Max \u2610")
 
 
 def test_status_lists_slots_and_requests(world):
@@ -133,10 +136,8 @@ def test_status_lists_slots_and_requests(world):
     bridge.handle(Inbound(TG, 100, "/status"))
     assert tg.sent[-1][1].startswith("Request #1: Me @me (id 1000)")  # re-sent with buttons
     assert tg.sent[-2][1] == (
-        "Telegram, user 1, the admin: id 100\n"
-        "Telegram, user 2, the other person: not connected\n"
-        "Max, user 1, the admin: not connected\n"
-        "Max, user 2, the other person: id 2000\n"
+        "user 1, the admin:  Telegram \u2611   Max \u2610\n"
+        "user 2, the other person:  Telegram \u2610   Max \u2611\n"
         "Request #1: Me @me (id 1000) wrote to the Max bot.")
 
 

@@ -45,7 +45,7 @@ messenger:
 
 | Command | Effect |
 |---|---|
-| `/status` | Who is connected on each messenger; re-sends the waiting requests with their buttons |
+| `/status` | Connection table (a row per user, a checkbox per messenger); re-sends the waiting requests with their buttons |
 | `/approve <request>` | Connect the requesting account to the one free seat on its messenger |
 | `/approve <request> <1\|2>` | Connect it as user 1 (the admin) or user 2 (the other person) |
 | `/deny <request>` | Ignore the requesting account |
