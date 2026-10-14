@@ -1,6 +1,7 @@
 """Routing, pairing requests and admin commands."""
 
 import logging
+import re
 import threading
 from dataclasses import dataclass
 
@@ -11,6 +12,18 @@ log = logging.getLogger(__name__)
 ADMIN_SLOT = 1
 SLOTS = (1, 2)
 WHO = {1: "user 1, the admin", 2: "user 2, the other person"}
+LINK_MARK = "[link removed]"
+# URL with a scheme, mailto/tel, or a bare host.tld with a path;
+# trailing punctuation stays in the text.
+_END = r"(?=[\s,;)\]]|[.?!:](?:\s|$)|$)"
+LINK_RE = re.compile(
+    r"(?i)\b(?:(?:[a-z][a-z0-9+.-]*://|www\.|mailto:|tel:)\S+?" + _END
+    + r"|(?:[^\s@]+@)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/\S*?)?" + _END + ")")
+
+
+def strip_links(text):
+    """Text with every link replaced; the number of links removed."""
+    return LINK_RE.subn(LINK_MARK, text)
 
 USER_COMMANDS = [("start", "Connect to the bridge")]
 ADMIN_COMMANDS = USER_COMMANDS + [
@@ -309,11 +322,15 @@ class Bridge:
                         % (WHO[other_slot(slot)], LABELS[dest], LABELS[dest]))
             return
         if ev.text:
+            text, removed = strip_links(ev.text)
             try:
-                self.messengers[dest].send(dest_id, ev.text)
+                self.messengers[dest].send(dest_id, text)
             except Exception as e:
                 log.error("send to %s %s failed: %s", dest, dest_id, e)
                 self._reply(ev, "Delivery to %s failed." % LABELS[dest])
+            else:
+                if removed:
+                    self._reply(ev, "Links are not relayed; %d removed." % removed)
         if ev.has_attachments:
             self._reply(ev, "Only text is relayed in this version.")
 

@@ -3,6 +3,13 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.5] - 2026-10-14
+
+### Changed
+
+- Links in relayed text are replaced by a marker and the sender is told;
+  link previews are disabled on both messengers.
+
 ## [0.1.4] - 2026-10-14
 
 ### Changed

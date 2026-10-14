@@ -63,7 +63,8 @@ class Telegram:
 
     def send(self, user_id, text, buttons=None):
         """buttons: rows of (label, payload); returns the message id."""
-        body = {"chat_id": user_id, "text": text}
+        body = {"chat_id": user_id, "text": text,
+                "link_preview_options": {"is_disabled": True}}
         if buttons:
             body["reply_markup"] = {"inline_keyboard": [
                 [{"text": label, "callback_data": data} for label, data in row]
@@ -139,7 +140,8 @@ class Max:
 
     def send(self, user_id, text, buttons=None):
         # Buttons are a Telegram-side feature for now.
-        self.client.post("/messages", {"text": text}, {"user_id": user_id})
+        self.client.post("/messages", {"text": text},
+                         {"user_id": user_id, "disable_link_preview": "true"})
 
     def answer(self, ev, text, outcome=None):
         pass
