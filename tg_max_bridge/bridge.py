@@ -14,7 +14,9 @@ SLOTS = (1, 2)
 HELP = (
     "/status  slots and pending requests\n"
     "/approve <request> <1|2>  bind the account to a slot\n"
-    "/deny <request>  ignore the account"
+    "/deny <request>  ignore the account\n"
+    "/unbind <tg|max> <1|2>  clear a slot bound at runtime\n"
+    "/bots  the two bot accounts"
 )
 
 
@@ -37,6 +39,7 @@ class Bridge:
         self.cfg = cfg
         self.state = state
         self.messengers = messengers  # name -> client
+        self.bots = {}  # name -> bot username, filled at start
         self.lock = threading.Lock()
         self.pending = {}  # number -> Request
         self._next = 1
@@ -68,10 +71,10 @@ class Bridge:
 
     def _handle(self, ev):
         slot = self.slot_of(ev.messenger, ev.user_id)
-        if slot is None and self._matches_username(ev):
-            self.state.bind(TG, 2, ev.user_id)
-            slot = 2
-            self._reply(ev, "Connected as user 2.")
+        if slot is None:
+            slot = self._bind_by_username(ev)
+            if slot is not None:
+                return
         if slot is None:
             self._request(ev)
             return
@@ -82,10 +85,19 @@ class Bridge:
             return
         self._relay(ev, slot)
 
-    def _matches_username(self, ev):
-        wanted = self.cfg.tg_user_2_username
-        return bool(wanted and ev.messenger == TG and ev.username
-                    and ev.username.lower() == wanted)
+    def _bind_by_username(self, ev):
+        """Bind a configured Telegram username; the slot, or None."""
+        if ev.messenger != TG or not ev.username:
+            return None
+        for slot, name in self.cfg.tg_usernames.items():
+            if ev.username.lower() == name:
+                self.state.bind(TG, slot, ev.user_id)
+                self._reply(ev, "Connected as user %d." % slot)
+                if slot == ADMIN_SLOT and self.pending:
+                    # Requests that waited for the admin.
+                    self._reply(ev, self._status())
+                return slot
+        return None
 
     def _request(self, ev):
         if ev.user_id in self.state.denied[ev.messenger]:
@@ -115,6 +127,11 @@ class Bridge:
             self._approve(ev, parts[1:])
         elif cmd == "/deny":
             self._deny(ev, parts[1:])
+        elif cmd == "/unbind":
+            self._unbind(ev, parts[1:])
+        elif cmd == "/bots":
+            self._reply(ev, "\n".join("%s: %s" % (LABELS[m], self.bots.get(m, "unknown"))
+                                      for m in (TG, MAX)))
         else:
             return False
         return True
@@ -142,6 +159,20 @@ class Bridge:
         self.state.deny(target.messenger, target.user_id)
         del self.pending[req.number]
         self._reply(ev, "Denied %s account %d." % (LABELS[target.messenger], target.user_id))
+
+    def _unbind(self, ev, args):
+        if len(args) != 2 or args[0] not in LABELS or args[1] not in ("1", "2"):
+            self._reply(ev, "Usage: /unbind <tg|max> <1|2>")
+            return
+        messenger, slot = args[0], int(args[1])
+        if (messenger, slot) in self.cfg.fixed:
+            self._reply(ev, "User %d on %s is configured, not bound." % (slot, LABELS[messenger]))
+            return
+        if slot not in self.state.bindings[messenger]:
+            self._reply(ev, "User %d on %s is not bound." % (slot, LABELS[messenger]))
+            return
+        self.state.unbind(messenger, slot)
+        self._reply(ev, "Unbound user %d on %s." % (slot, LABELS[messenger]))
 
     def _take(self, ev, args):
         """Pending request named by the first argument, or None."""
@@ -186,8 +217,12 @@ class Bridge:
             log.error("reply to %s %s failed: %s", ev.messenger, ev.user_id, e)
 
     def _notify_admin(self, text):
+        admin = self.slots(TG).get(ADMIN_SLOT)
+        if admin is None:
+            log.warning("no admin bound on Telegram; request not delivered: %s", text)
+            return
         try:
-            self.messengers[TG].send(self.cfg.tg_admin_id, text)
+            self.messengers[TG].send(admin, text)
         except Exception as e:
             log.error("notifying the admin failed: %s", e)
 

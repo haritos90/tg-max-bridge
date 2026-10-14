@@ -3,11 +3,11 @@ import pytest
 from tg_max_bridge import config
 from tg_max_bridge.messengers import MAX, TG
 
-BASE = {"TG_BOT_TOKEN": "t", "MAX_BOT_TOKEN": "m", "TG_ADMIN_ID": "100", "HOME": "/h"}
+BASE = {"TG_BOT_TOKEN": "t", "MAX_BOT_TOKEN": "m", "TG_ADMIN": "100", "HOME": "/h"}
 
 
 def test_required_keys():
-    with pytest.raises(config.ConfigError, match="MAX_BOT_TOKEN, TG_ADMIN_ID"):
+    with pytest.raises(config.ConfigError, match="MAX_BOT_TOKEN, TG_ADMIN"):
         config.load({"TG_BOT_TOKEN": "t"})
 
 
@@ -16,12 +16,19 @@ def test_defaults():
     assert cfg.fixed == {(TG, 1): 100}
     assert cfg.max_api_url == "https://platform-api2.max.ru"
     assert cfg.state_file == "/h/.local/state/tg-max-bridge/state.json"
-    assert cfg.tg_user_2_username is None
+    assert cfg.tg_usernames == {}
 
 
 def test_user_2_as_username_or_id():
-    assert config.load({**BASE, "TG_USER_2": "@Anna"}).tg_user_2_username == "anna"
+    assert config.load({**BASE, "TG_USER_2": "@Anna"}).tg_usernames == {2: "anna"}
     assert config.load({**BASE, "TG_USER_2": "200"}).fixed[(TG, 2)] == 200
+
+
+def test_admin_as_username_or_legacy_id():
+    cfg = config.load({**BASE, "TG_ADMIN": "@Owner"})
+    assert cfg.tg_usernames == {1: "owner"} and (TG, 1) not in cfg.fixed
+    cfg = config.load({**BASE, "TG_ADMIN": "", "TG_ADMIN_ID": "7"})
+    assert cfg.fixed[(TG, 1)] == 7
 
 
 def test_max_ids_and_paths():
@@ -33,5 +40,5 @@ def test_max_ids_and_paths():
 
 
 def test_bad_number():
-    with pytest.raises(config.ConfigError, match="TG_ADMIN_ID"):
-        config.load({**BASE, "TG_ADMIN_ID": "abc"})
+    with pytest.raises(config.ConfigError, match="MAX_USER_1"):
+        config.load({**BASE, "MAX_USER_1": "abc"})

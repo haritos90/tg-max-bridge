@@ -14,10 +14,10 @@ class ConfigError(Exception):
 class Config:
     tg_token: str
     max_token: str
-    tg_admin_id: int
     # Configured slots win over the state file.
     fixed: dict = field(default_factory=dict)  # (messenger, slot) -> id
-    tg_user_2_username: str | None = None
+    # Telegram usernames bound on first message, slot -> name.
+    tg_usernames: dict = field(default_factory=dict)
     max_api_url: str = "https://platform-api2.max.ru"
     max_ca_file: str | None = None
     state_file: str = ""
@@ -42,26 +42,29 @@ def default_state_file(env):
 
 def load(env=None):
     env = os.environ if env is None else env
-    missing = [k for k in ("TG_BOT_TOKEN", "MAX_BOT_TOKEN", "TG_ADMIN_ID")
-               if not env.get(k, "").strip()]
+    missing = [k for k in ("TG_BOT_TOKEN", "MAX_BOT_TOKEN") if not env.get(k, "").strip()]
+    # task-4: TG_ADMIN_ID stays as an alias.
+    if not (env.get("TG_ADMIN", "").strip() or env.get("TG_ADMIN_ID", "").strip()):
+        missing.append("TG_ADMIN")
     if missing:
         raise ConfigError("missing: " + ", ".join(missing))
     cfg = Config(
         tg_token=env["TG_BOT_TOKEN"].strip(),
         max_token=env["MAX_BOT_TOKEN"].strip(),
-        tg_admin_id=_int(env, "TG_ADMIN_ID"),
         max_api_url=env.get("MAX_API_URL", "").strip() or Config.max_api_url,
         max_ca_file=env.get("MAX_CA_FILE", "").strip() or None,
         state_file=env.get("STATE_FILE", "").strip() or default_state_file(env),
         log_level=env.get("LOG_LEVEL", "").strip() or "INFO",
     )
-    cfg.fixed[(TG, 1)] = cfg.tg_admin_id
-    # TG_USER_2 is a numeric id or a username.
-    user_2 = env.get("TG_USER_2", "").strip().lstrip("@")
-    if user_2.isdigit():
-        cfg.fixed[(TG, 2)] = int(user_2)
-    elif user_2:
-        cfg.tg_user_2_username = user_2.lower()
+    # Each Telegram slot is a numeric id or a username.
+    for slot, keys in ((1, ("TG_ADMIN", "TG_ADMIN_ID")), (2, ("TG_USER_2",))):
+        value = ""
+        for key in keys:
+            value = value or env.get(key, "").strip().lstrip("@")
+        if value.isdigit():
+            cfg.fixed[(TG, slot)] = int(value)
+        elif value:
+            cfg.tg_usernames[slot] = value.lower()
     for slot in (1, 2):
         value = _int(env, "MAX_USER_%d" % slot)
         if value is not None:

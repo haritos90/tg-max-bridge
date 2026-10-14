@@ -3,6 +3,14 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- `TG_ADMIN` takes a Telegram username as well as an id; the admin is bound
+  on the first message, and requests reach the bound account.
+- `/unbind` and `/bots` admin commands.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added

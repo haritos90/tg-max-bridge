@@ -43,11 +43,14 @@ def main(argv=None):
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     tg = Telegram(cfg.tg_token)
     mx = Max(cfg.max_token, cfg.max_api_url, cfg.max_ca_file)
+    bots = {}
     for m in (tg, mx):
         info = m.whoami()
-        log.info("%s bot: %s", m.name, info.get("username") or info.get("name"))
+        bots[m.name] = info.get("username") or info.get("name") or "unknown"
+        log.info("%s bot: %s", m.name, bots[m.name])
     state = State(cfg.state_file).load()
     bridge = Bridge(cfg, state, {tg.name: tg, mx.name: mx})
+    bridge.bots = bots
 
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):

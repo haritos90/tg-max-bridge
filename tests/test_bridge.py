@@ -116,7 +116,7 @@ def test_start_from_bound_user_confirms_slot(world):
 
 def test_configured_username_binds_user_2(world):
     bridge, tg, mx, state = world
-    bridge.cfg.tg_user_2_username = "anna"
+    bridge.cfg.tg_usernames[2] = "anna"
     bridge.handle(Inbound(TG, 200, "hi", username="Anna"))
     assert state.bindings[TG] == {2: 200}
     assert tg.sent[0] == (200, "Connected as user 2.")
@@ -128,3 +128,38 @@ def test_configured_ids_override_state(world):
     bridge.cfg.fixed[(MAX, 2)] = 2500
     assert bridge.slots(MAX) == {2: 2500}
     assert bridge.slot_of(MAX, 2000) is None
+
+
+def test_configured_admin_username_binds_and_receives_requests(world):
+    bridge, tg, mx, state = world
+    del bridge.cfg.fixed[(TG, 1)]
+    bridge.cfg.tg_usernames[1] = "owner"
+    bridge.handle(Inbound(MAX, 2000, None, name="Anna", started=True))
+    assert tg.sent == []  # no owner bound yet: logged only
+    bridge.handle(Inbound(TG, 300, "/status", username="Owner"))
+    assert state.bindings[TG] == {1: 300}
+    assert tg.sent[0] == (300, "Connected as user 1.")
+    assert "Request #1 from Max" in tg.sent[1][1]
+    bridge.handle(Inbound(MAX, 4000, "new", name="B"))
+    assert tg.sent[-1][0] == 300 and tg.sent[-1][1].startswith("Request #2")
+
+
+def test_unbind_clears_runtime_slot_only(world):
+    bridge, tg, mx, state = world
+    state.bind(MAX, 2, 2000)
+    bridge.handle(Inbound(TG, 100, "/unbind max 2"))
+    assert state.bindings[MAX] == {}
+    assert tg.sent[-1] == (100, "Unbound user 2 on Max.")
+    bridge.handle(Inbound(TG, 100, "/unbind tg 1"))
+    assert tg.sent[-1] == (100, "User 1 on Telegram is configured, not bound.")
+    bridge.handle(Inbound(TG, 100, "/unbind max 2"))
+    assert tg.sent[-1] == (100, "User 2 on Max is not bound.")
+    bridge.handle(Inbound(TG, 100, "/unbind x 2"))
+    assert tg.sent[-1] == (100, "Usage: /unbind <tg|max> <1|2>")
+
+
+def test_bots_lists_both_accounts(world):
+    bridge, tg, mx, state = world
+    bridge.bots = {TG: "bot_a", MAX: "bot_b"}
+    bridge.handle(Inbound(TG, 100, "/bots"))
+    assert tg.sent[-1] == (100, "Telegram: bot_a\nMax: bot_b")

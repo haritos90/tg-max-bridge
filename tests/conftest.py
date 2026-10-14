@@ -20,7 +20,7 @@ class FakeMessenger:
 
 @pytest.fixture
 def world(tmp_path):
-    cfg = Config(tg_token="t", max_token="m", tg_admin_id=100,
+    cfg = Config(tg_token="t", max_token="m",
                  state_file=str(tmp_path / "state.json"))
     cfg.fixed[(TG, 1)] = 100
     state = State(cfg.state_file)

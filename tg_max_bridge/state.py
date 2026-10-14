@@ -47,6 +47,10 @@ class State:
         self.denied[messenger].discard(user_id)
         self.save()
 
+    def unbind(self, messenger, slot):
+        self.bindings[messenger].pop(slot, None)
+        self.save()
+
     def deny(self, messenger, user_id):
         self.denied[messenger].add(user_id)
         self.save()

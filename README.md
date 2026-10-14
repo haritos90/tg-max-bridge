@@ -33,14 +33,15 @@ Write the environment file with the two tokens and the admin id, then start:
     set -a; . /etc/tg-max-bridge.env; set +a
     python3 -m tg_max_bridge
 
-`TG_ADMIN_ID` is the numeric Telegram id of user 1, the admin. For a
+`TG_ADMIN` is the Telegram username or numeric id of user 1, the admin. For a
 permanent service copy deploy/tg-max-bridge.service to /etc/systemd/system/,
 adjust its paths, and enable it.
 
 ## Usage
 
-The admin is user 1 and is known by the Telegram id. Every other account is
-bound once, by approval:
+The admin is user 1 and is known by the Telegram username or id in
+`TG_ADMIN`; a username is bound on the admin's first message to the bot.
+Every other account is bound once, by approval:
 
 1. An account opens the bot and presses Start, or sends any message. The bot
    replies that a request was sent to the admin.
@@ -56,12 +57,16 @@ The admin commands work from any account bound as user 1, on either messenger:
 | `/status` | The four slots and the pending requests |
 | `/approve <request> <1\|2>` | Bind the requesting account to a slot |
 | `/deny <request>` | Ignore the requesting account |
+| `/unbind <tg\|max> <1\|2>` | Clear a slot bound at runtime; configured slots stay |
+| `/bots` | The usernames of the two bot accounts |
 | `/help` | The command list |
 
 Bindings and denials are persisted in the state file; pending requests live
-in memory and are recreated by the next message from that account. A
-configured `TG_USER_2` binds user 2 on Telegram without a request. Any other
-text from a bound account is relayed.
+in memory and are recreated by the next message from that account. A request
+that arrives before the admin is bound on Telegram is logged and is
+re-created by the account's next message. A configured `TG_USER_2` binds
+user 2 on Telegram without a request. Any other text from a bound account is
+relayed.
 
 ## Configuration
 
@@ -71,7 +76,7 @@ Environment variables, read once at start:
 |---|---|---|
 | `TG_BOT_TOKEN` | required | Telegram bot token |
 | `MAX_BOT_TOKEN` | required | Max bot token |
-| `TG_ADMIN_ID` | required | Telegram id of user 1, the admin |
+| `TG_ADMIN` | required | Telegram username or id of user 1, the admin; `TG_ADMIN_ID` is accepted as an alias |
 | `TG_USER_2` | unset | Telegram username or id of user 2; bound on the first message, no approval |
 | `MAX_USER_1`, `MAX_USER_2` | unset | Max ids of the two users, when known; take precedence over the state file |
 | `MAX_API_URL` | `https://platform-api2.max.ru` | Max platform API base URL |
