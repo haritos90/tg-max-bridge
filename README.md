@@ -43,7 +43,7 @@ messenger:
 
 | Command | Effect |
 |---|---|
-| `/status` | Who is connected on each messenger and who is waiting |
+| `/status` | Who is connected on each messenger; re-sends the waiting requests with their buttons |
 | `/approve <request>` | Connect the requesting account to the one free seat on its messenger |
 | `/approve <request> <1\|2>` | Connect it as user 1 (the admin) or user 2 (the other person) |
 | `/deny <request>` | Ignore the requesting account |
@@ -58,8 +58,8 @@ seats are free, it asks whether the account is the admin's own, with the
 answers "Yes, it is me", "No, the other person" and Ignore. A pressed button
 replaces the request text with the outcome.
 
-Bindings and denials are persisted in the state file; pending requests live
-in memory, so a restart drops them and the account has to write again. A request
+Bindings and denials are persisted in the state file; pending requests are
+stored there too and re-sent to the admin at startup and on `/status`. A request
 that arrives before the admin is bound on Telegram is shown to the admin on
 binding. Any other text from a bound account is relayed. The pairing flow is
 described under Configuration.

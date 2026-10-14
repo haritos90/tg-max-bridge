@@ -30,3 +30,13 @@ def test_bind_clears_denial(tmp_path):
 def test_missing_file_loads_empty(tmp_path):
     s = State(str(tmp_path / "none.json")).load()
     assert s.bindings == {TG: {}, MAX: {}}
+
+
+def test_pending_requests_survive_reload(tmp_path):
+    s = State(str(tmp_path / "state.json"))
+    assert s.add_request(MAX, 2000, "Anna", None) == 1
+    s.drop_request(1)
+    assert s.add_request(TG, 300, "B", "b") == 2
+    loaded = State(s.path).load()
+    assert loaded.pending == {2: {"messenger": TG, "user_id": 300, "name": "B", "username": "b"}}
+    assert loaded.next_request == 3

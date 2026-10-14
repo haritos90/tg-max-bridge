@@ -129,7 +129,8 @@ def test_status_lists_slots_and_requests(world):
     state.bind(MAX, 2, 2000)
     bridge.handle(Inbound(MAX, 1000, "hi", name="Me", username="me"))
     bridge.handle(Inbound(TG, 100, "/status"))
-    assert tg.sent[-1][1] == (
+    assert tg.sent[-1][1].startswith("Request #1: Me @me (id 1000)")  # re-sent with buttons
+    assert tg.sent[-2][1] == (
         "Telegram, user 1, the admin: id 100\n"
         "Telegram, user 2, the other person: not connected\n"
         "Max, user 1, the admin: not connected\n"
@@ -215,3 +216,12 @@ def test_unknown_account_ignored_when_slots_full(world):
     bridge.handle(Inbound(MAX, 3000, "hi", name="X"))
     bridge.handle(Inbound(TG, 300, None, started=True))
     assert mx.sent == [] and tg.sent == [] and bridge.pending == {}
+
+
+def test_status_and_startup_resend_waiting_requests(world):
+    bridge, tg, mx, state = world
+    bridge.handle(Inbound(MAX, 2000, None, name="Anna", started=True))
+    bridge.resend_pending()
+    bridge.handle(Inbound(TG, 100, "/status"))
+    requests = [t for _, t in tg.sent if t.startswith("Request #1: Anna (id 2000)")]
+    assert len(requests) == 3 and len(tg.buttons) == 3

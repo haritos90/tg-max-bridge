@@ -12,6 +12,8 @@ class State:
         self.path = path
         self.bindings = {TG: {}, MAX: {}}  # messenger -> {slot: id}
         self.denied = {TG: set(), MAX: set()}
+        self.pending = {}  # number -> {messenger, user_id, name, username}
+        self.next_request = 1
 
     def load(self):
         if not os.path.exists(self.path):
@@ -22,6 +24,8 @@ class State:
             raw = data.get("bindings", {}).get(m, {})
             self.bindings[m] = {int(k): int(v) for k, v in raw.items()}
             self.denied[m] = set(data.get("denied", {}).get(m, []))
+        self.pending = {int(k): v for k, v in data.get("pending", {}).items()}
+        self.next_request = int(data.get("next_request", 1))
         return self
 
     def save(self):
@@ -29,6 +33,8 @@ class State:
             "bindings": {m: {str(k): v for k, v in b.items()}
                          for m, b in self.bindings.items()},
             "denied": {m: sorted(d) for m, d in self.denied.items()},
+            "pending": {str(k): v for k, v in self.pending.items()},
+            "next_request": self.next_request,
         }
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         # Write whole, then replace: never a torn file.
@@ -49,6 +55,18 @@ class State:
 
     def unbind(self, messenger, slot):
         self.bindings[messenger].pop(slot, None)
+        self.save()
+
+    def add_request(self, messenger, user_id, name, username):
+        number = self.next_request
+        self.next_request += 1
+        self.pending[number] = {"messenger": messenger, "user_id": user_id,
+                                "name": name, "username": username}
+        self.save()
+        return number
+
+    def drop_request(self, number):
+        self.pending.pop(number, None)
         self.save()
 
     def deny(self, messenger, user_id):

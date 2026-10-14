@@ -51,6 +51,7 @@ def main(argv=None):
     state = State(cfg.state_file).load()
     bridge = Bridge(cfg, state, {tg.name: tg, mx.name: mx})
     bridge.bots = bots
+    bridge.resend_pending()
 
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):

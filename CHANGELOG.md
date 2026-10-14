@@ -3,7 +3,7 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.1.1] - 2026-10-14
 
 ### Added
 
@@ -12,6 +12,8 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 - `/unbind` and `/bots` admin commands.
 - Requests arrive on Telegram with buttons; `/approve <request>` without a
   seat number takes the one free seat.
+- Pending requests are stored in the state file and re-sent to the admin
+  at startup and on `/status`.
 
 ### Changed
 

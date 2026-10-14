@@ -28,6 +28,12 @@ class Request:
     event: Inbound
 
 
+def request_from_state(number, rec):
+    """Rebuild a request from its state-file record."""
+    return Request(number, Inbound(rec["messenger"], rec["user_id"], None,
+                                   username=rec.get("username"), name=rec.get("name") or ""))
+
+
 def other_messenger(messenger):
     return MAX if messenger == TG else TG
 
@@ -43,8 +49,17 @@ class Bridge:
         self.messengers = messengers  # name -> client
         self.bots = {}  # name -> bot username, filled at start
         self.lock = threading.Lock()
-        self.pending = {}  # number -> Request
-        self._next = 1
+
+    @property
+    def pending(self):
+        """number -> Request, rebuilt from the state file."""
+        return {n: request_from_state(n, rec) for n, rec in self.state.pending.items()}
+
+    def resend_pending(self):
+        """Waiting requests to the admin: after a restart or on /status."""
+        with self.lock:
+            for req in self.pending.values():
+                self._notify_admin(req)
 
     # -- identity -----------------------------------------------------------
 
@@ -124,11 +139,9 @@ class Bridge:
             if (req.event.messenger, req.event.user_id) == (ev.messenger, ev.user_id):
                 self._reply(ev, "Waiting for the admin to approve this account.")
                 return
-        req = Request(self._next, ev)
-        self._next += 1
-        self.pending[req.number] = req
+        number = self.state.add_request(ev.messenger, ev.user_id, ev.name, ev.username)
         self._reply(ev, "Request sent to the admin.")
-        self._notify_admin(req)
+        self._notify_admin(Request(number, ev))
 
     def _notify_admin(self, req):
         admin = self.slots(TG).get(ADMIN_SLOT)
@@ -172,6 +185,9 @@ class Bridge:
         cmd = parts[0].lower()
         if cmd == "/status":
             self._reply(ev, self._status())
+            if ev.messenger == TG:
+                for req in self.pending.values():
+                    self._notify_admin(req)
         elif cmd == "/help":
             self._reply(ev, HELP)
         elif cmd == "/approve":
@@ -204,14 +220,14 @@ class Bridge:
         """Bind the request's account; the outcome sentence."""
         target = req.event
         self.state.bind(target.messenger, slot, target.user_id)
-        del self.pending[req.number]
+        self.state.drop_request(req.number)
         self._reply(target, "You are connected as %s." % WHO[slot])
         return "%s on %s is now %s." % (describe(target), LABELS[target.messenger], WHO[slot])
 
     def _deny(self, req):
         target = req.event
         self.state.deny(target.messenger, target.user_id)
-        del self.pending[req.number]
+        self.state.drop_request(req.number)
         return "%s on %s is ignored from now on." % (describe(target), LABELS[target.messenger])
 
     def _unbind(self, ev, args):
