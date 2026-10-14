@@ -3,6 +3,13 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.3] - 2026-10-14
+
+### Fixed
+
+- Connections try IPv4 first with a short connect timeout, so a black-holed
+  IPv6 route no longer stalls startup and polling.
+
 ## [0.1.2] - 2026-10-14
 
 ### Added
