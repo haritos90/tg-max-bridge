@@ -90,6 +90,9 @@ class Bridge:
         if ev.messenger != TG or not ev.username:
             return None
         for slot, name in self.cfg.tg_usernames.items():
+            # Pinned once: the stored id is authoritative.
+            if slot in self.state.bindings[TG]:
+                continue
             if ev.username.lower() == name:
                 self.state.bind(TG, slot, ev.user_id)
                 self._reply(ev, "Connected as user %d." % slot)
@@ -101,6 +104,9 @@ class Bridge:
 
     def _request(self, ev):
         if ev.user_id in self.state.denied[ev.messenger]:
+            return
+        if len(self.slots(ev.messenger)) == len(SLOTS):
+            log.info("ignoring %s account %s: slots full", ev.messenger, ev.user_id)
             return
         for req in self.pending.values():
             if (req.event.messenger, req.event.user_id) == (ev.messenger, ev.user_id):

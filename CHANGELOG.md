@@ -11,6 +11,12 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow
   on the first message, and requests reach the bound account.
 - `/unbind` and `/bots` admin commands.
 
+### Changed
+
+- A configured username binds a slot once; the stored id is authoritative.
+- An unknown account on a messenger whose two slots are bound is ignored
+  silently.
+
 ## [0.1.0] - 2026-10-14
 
 ### Added

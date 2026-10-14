@@ -163,3 +163,20 @@ def test_bots_lists_both_accounts(world):
     bridge.bots = {TG: "bot_a", MAX: "bot_b"}
     bridge.handle(Inbound(TG, 100, "/bots"))
     assert tg.sent[-1] == (100, "Telegram: bot_a\nMax: bot_b")
+
+
+def test_pinned_username_does_not_rebind(world):
+    bridge, tg, mx, state = world
+    bridge.cfg.tg_usernames[2] = "anna"
+    bridge.handle(Inbound(TG, 200, "hi", username="anna"))
+    bridge.handle(Inbound(TG, 201, "hi", username="anna"))
+    assert state.bindings[TG] == {2: 200}
+    assert tg.sent == [(200, "Connected as user 2.")]  # second account ignored
+
+
+def test_unknown_account_ignored_when_slots_full(world):
+    bridge, tg, mx, state = world
+    bind_all(state)
+    bridge.handle(Inbound(MAX, 3000, "hi", name="X"))
+    bridge.handle(Inbound(TG, 300, None, started=True))
+    assert mx.sent == [] and tg.sent == [] and bridge.pending == {}
