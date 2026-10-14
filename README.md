@@ -1,10 +1,10 @@
 # tg-max-bridge
 
-Relays text between two people across Telegram and Max: what user 1 writes
-to the bot on one messenger reaches user 2 on the other, and back.
+Relays text between two people across Telegram and Max: what one user writes
+to the bot on one messenger reaches the other user on the other messenger, and back.
 
 One process runs both bots over long polling. Four accounts take part: user 1
-and user 2 on each messenger. Messages cross messengers, never stay on one:
+and user 2 on each messenger:
 
 | From | To |
 |---|---|
@@ -13,14 +13,9 @@ and user 2 on each messenger. Messages cross messengers, never stay on one:
 | user 2 on Telegram | user 1 on Max |
 | user 2 on Max | user 1 on Telegram |
 
-Text, pictures and voice messages are relayed unchanged, the caption with
-its picture; a message with other content (files, video, stickers,
-locations) tells the sender so and relays its caption, if any. A voice
-message from Telegram arrives on Max as an audio message; an audio message
-from Max arrives on Telegram as a voice message when it is OGG Opus and as
-an audio file otherwise. Link previews are disabled on both sides. Nothing but the text crosses: replies go back on the sender's
-messenger, and names, ids and bot usernames appear only in the admin's
-Telegram chat.
+Supports text, pictures and voice messages.
+
+The bridge is managed by the admin user in Telegram.
 
 ## Requirements
 
@@ -57,21 +52,6 @@ messenger:
 | `/bots` | The usernames of the two bot accounts |
 | `/help` | The command list |
 
-Both bots publish a command menu at startup: `start` for everyone, and on
-Telegram the admin commands in the admin's chat only. On Telegram a request
-arrives with buttons, so the commands are a fallback.
-When one seat on the account's messenger is already taken, the message
-offers Connect and Ignore and the account takes the free seat. When both
-seats are free, it asks whether the account is the admin's own, with the
-answers "Yes, it is me", "No, the other person" and Ignore. A pressed button
-replaces the request text with the outcome.
-
-Bindings and denials are persisted in the state file; pending requests are
-stored there too and re-sent to the admin at startup and on `/status`. A request
-that arrives before the admin is bound on Telegram is shown to the admin on
-binding. Any other text from a bound account is relayed. The pairing flow is
-described under Configuration.
-
 ## Configuration
 
 Environment variables, read once at start:
@@ -87,47 +67,6 @@ Environment variables, read once at start:
 | `MAX_CA_FILE` | unset | PEM file with the root certificate of the Max API host, added to the trust store |
 | `STATE_FILE` | `$XDG_STATE_HOME/tg-max-bridge/state.json` | Bindings and denials; `~/.local/state` when `XDG_STATE_HOME` is unset |
 | `LOG_LEVEL` | `INFO` | Python logging level |
-
-The setup runs in this order:
-
-1. The environment file names the admin. `TG_ADMIN` is the admin's Telegram
-   username (set in the Telegram profile, 5 to 32 letters, digits and
-   underscores, with or without the leading `@`) or the numeric Telegram id.
-   An account without a username needs its id, which a bot such as
-   `@userinfobot` reports.
-2. The admin opens the Telegram bot and sends any message. A username is
-   pinned to the account's numeric id on that first message and stored in
-   the state file; from then on the id is authoritative, because a username
-   can be changed or taken over while the id cannot. A pinned username binds
-   no second account: a later account with the same username is treated as
-   unknown.
-3. Both Max accounts contact the Max bot: press Start or send any message.
-   Each contact reaches the admin on Telegram as a numbered request with the
-   account's name and id and buttons to answer it (Usage). The first Max
-   account is the only one the admin has to identify as their own or the
-   other person's; the second takes the remaining seat with one tap. The
-   same flow binds user 2 on Telegram, unless `TG_USER_2` is set.
-4. Every other account is ignored. Before a messenger's two seats are bound,
-   an unknown account gets a one-line reply and the admin gets the request to
-   approve or deny; once both seats are bound, an unknown account gets no
-   reply and no request is raised. A denied account stays ignored.
-
-The Max platform host presents a certificate chain whose root is absent from
-common trust stores; the platform's developer documentation names the root
-certificate to install. Save it as a PEM file and set `MAX_CA_FILE`. Max is
-reached at `platform-api2.max.ru` with the token in the `Authorization`
-header, as the platform requires since 2026.
-
-## Development
-
-    python3 -m venv .venv && . .venv/bin/activate
-    pip install -r requirements-dev.txt
-    ruff check . && pytest -q
-
-Tests run with fake messengers and no network. Contribution terms:
-CONTRIBUTING.md. The version is in tg_max_bridge/__init__.py and
-pyproject.toml, with the changes in CHANGELOG.md; every change bumps the
-patch number.
 
 ## License
 
