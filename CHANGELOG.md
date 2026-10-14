@@ -3,6 +3,13 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.4] - 2026-10-14
+
+### Changed
+
+- A message to an unconnected seat says which bot the other person has to
+  open and press Start.
+
 ## [0.1.3] - 2026-10-14
 
 ### Fixed

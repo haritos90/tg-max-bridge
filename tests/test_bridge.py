@@ -22,7 +22,8 @@ def test_unbound_destination_is_reported_to_sender(world):
     bridge, tg, mx, state = world
     bridge.handle(Inbound(TG, 100, "hello"))
     assert mx.sent == []
-    assert tg.sent == [(100, "User 2 is not connected on Max yet.")]
+    assert tg.sent == [(100, "Not delivered: user 2, the other person has no Max account "
+                             "connected yet. They need to open the Max bot and press Start.")]
 
 
 def test_attachments_are_not_relayed(world):

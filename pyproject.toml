@@ -1,6 +1,6 @@
 [project]
 name = "tg-max-bridge"
-version = "0.1.3"
+version = "0.1.4"
 description = "Relay text between two people across Telegram and Max"
 requires-python = ">=3.11"
 license = "MIT"

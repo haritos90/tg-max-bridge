@@ -304,8 +304,9 @@ class Bridge:
         dest = other_messenger(ev.messenger)
         dest_id = self.slots(dest).get(other_slot(slot))
         if dest_id is None:
-            self._reply(ev, "User %d is not connected on %s yet."
-                        % (other_slot(slot), LABELS[dest]))
+            self._reply(ev, "Not delivered: %s has no %s account connected yet. "
+                        "They need to open the %s bot and press Start."
+                        % (WHO[other_slot(slot)], LABELS[dest], LABELS[dest]))
             return
         if ev.text:
             try:
