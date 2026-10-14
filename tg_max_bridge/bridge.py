@@ -4,7 +4,7 @@ import logging
 import threading
 from dataclasses import dataclass
 
-from .messengers import LABELS, MAX, TG, Inbound
+from .messengers import CAPTION_MAX, LABELS, MAX, TG, Inbound
 
 log = logging.getLogger(__name__)
 
@@ -312,14 +312,26 @@ class Bridge:
                         "They need to open the %s bot and press Start."
                         % (WHO[other_slot(slot)], LABELS[dest], LABELS[dest]))
             return
-        if ev.text:
-            try:
-                self.messengers[dest].send(dest_id, ev.text)
-            except Exception as e:
-                log.error("send to %s %s failed: %s", dest, dest_id, e)
-                self._reply(ev, "Delivery to %s failed." % LABELS[dest])
+        try:
+            self._deliver(ev, dest, dest_id)
+        except Exception as e:
+            log.error("send to %s %s failed: %s", dest, dest_id, e)
+            self._reply(ev, "Delivery to %s failed." % LABELS[dest])
         if ev.has_attachments:
-            self._reply(ev, "Only text is relayed in this version.")
+            self._reply(ev, "Only text, pictures and voice messages are relayed.")
+
+    def _deliver(self, ev, dest, dest_id):
+        """Text as the first caption when it fits, else on its own."""
+        text = ev.text
+        if text and ev.media and len(text) > CAPTION_MAX:
+            self.messengers[dest].send(dest_id, text)
+            text = None
+        if text and not ev.media:
+            self.messengers[dest].send(dest_id, text)
+        for item in ev.media:
+            data, filename, mime = self.messengers[ev.messenger].download(item)
+            self.messengers[dest].send_media(dest_id, item.kind, data, filename, mime, text)
+            text = None
 
     def _reply(self, ev, text):
         try:

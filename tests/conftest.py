@@ -18,6 +18,16 @@ class FakeMessenger:
     def set_commands(self, commands, user_id=None):
         self.menus.append((user_id, [n for n, _ in commands]))
 
+    def download(self, media):
+        if self.fail:
+            raise RuntimeError("down")
+        return b"bytes-of-" + media.ref.encode(), media.ref + ".bin", "application/x-test"
+
+    def send_media(self, user_id, kind, data, filename, mime, caption=None):
+        if self.fail:
+            raise RuntimeError("down")
+        self.sent.append((user_id, (kind, data, filename, mime, caption)))
+
     def send(self, user_id, text, buttons=None):
         if self.fail:
             raise RuntimeError("down")

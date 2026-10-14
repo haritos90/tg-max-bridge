@@ -3,6 +3,7 @@
 import http.client
 import json
 import socket
+import uuid
 import ssl
 import urllib.error
 import urllib.parse
@@ -72,6 +73,33 @@ class JsonClient:
     def patch(self, path, payload, params=None):
         return self._request("PATCH", path, params, payload, None)
 
+    def get_bytes(self, url):
+        """Body and content type of an absolute URL."""
+        return self._raw("GET", url, None, {}, None)
+
+    def post_multipart(self, url, fields, name, filename, data, mime):
+        """One file plus text fields; url absolute or a path; JSON back."""
+        if url.startswith("/"):
+            url = self.base_url + url
+        boundary = uuid.uuid4().hex
+        parts = []
+        for key, value in fields.items():
+            if value is None:
+                continue
+            parts.append(("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n"
+                          % (boundary, key, value)).encode("utf-8"))
+        parts.append(("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n"
+                      "Content-Type: %s\r\n\r\n" % (boundary, name, filename, mime)).encode("utf-8"))
+        parts.append(data)
+        parts.append(("\r\n--%s--\r\n" % boundary).encode("utf-8"))
+        body, _ = self._raw("POST", url, b"".join(parts),
+                            {"Content-Type": "multipart/form-data; boundary=" + boundary}, None)
+        try:
+            return json.loads(body.decode("utf-8")) if body else {}
+        except ValueError:
+            # An upload host may answer with plain text.
+            return {"raw": body.decode("utf-8", "replace")}
+
     def _request(self, method, path, params, payload, timeout):
         url = self.base_url + path
         if params:
@@ -79,14 +107,20 @@ class JsonClient:
                 {k: v for k, v in params.items() if v is not None}
             )
         data = None
-        headers = dict(self.headers)
+        headers = {}
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
+        body, _ = self._raw(method, url, data, headers, timeout)
+        return json.loads(body.decode("utf-8"))
+
+    def _raw(self, method, url, data, extra_headers, timeout):
+        headers = dict(self.headers)
+        headers.update(extra_headers)
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with self.opener.open(req, timeout=timeout or self.timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                return resp.read(), resp.headers.get("Content-Type", "")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "replace")
             raise HttpError(e.code, body) from None

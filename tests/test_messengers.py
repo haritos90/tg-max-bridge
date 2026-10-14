@@ -1,4 +1,4 @@
-from tg_max_bridge.messengers import MAX, TG, parse_max, parse_telegram
+from tg_max_bridge.messengers import AUDIO, IMAGE, MAX, TG, parse_max, parse_telegram
 
 
 def tg_update(text=None, chat_type="private", **extra):
@@ -19,8 +19,13 @@ def test_telegram_text():
 
 def test_telegram_start_and_media():
     assert parse_telegram(tg_update("/start")).started
-    ev = parse_telegram(tg_update(photo=[{"file_id": "x"}]))
-    assert ev.text is None and ev.has_attachments
+    ev = parse_telegram(tg_update(photo=[{"file_id": "s"}, {"file_id": "l"}], caption="c"))
+    assert ev.text == "c" and not ev.has_attachments
+    assert [(m.kind, m.ref) for m in ev.media] == [(IMAGE, "l")]
+    ev = parse_telegram(tg_update(voice={"file_id": "v"}))
+    assert [(m.kind, m.ref) for m in ev.media] == [(AUDIO, "v")]
+    ev = parse_telegram(tg_update(document={"file_id": "d"}))
+    assert ev.media == [] and ev.has_attachments
 
 
 def test_telegram_ignores_groups_and_non_messages():
@@ -35,9 +40,13 @@ def test_max_message():
                        "body": {"mid": "m", "seq": 1, "text": "hi", "attachments": None}}}
     ev = parse_max(upd)
     assert (ev.messenger, ev.user_id, ev.text, ev.name) == (MAX, 1000, "hi", "Me")
-    upd["message"]["body"] = {"mid": "m", "seq": 2, "attachments": [{"type": "image"}]}
+    upd["message"]["body"] = {"mid": "m", "seq": 2, "attachments": [
+        {"type": "image", "payload": {"url": "https://h/i.jpg", "token": "t", "photo_id": 1}},
+        {"type": "audio", "payload": {"url": "https://h/a.mp3", "token": "t2"}},
+        {"type": "sticker", "payload": {"url": "https://h/s"}}]}
     ev = parse_max(upd)
     assert ev.text is None and ev.has_attachments
+    assert [(m.kind, m.ref) for m in ev.media] == [(IMAGE, "https://h/i.jpg"), (AUDIO, "https://h/a.mp3")]
 
 
 def test_max_started_and_other_updates():

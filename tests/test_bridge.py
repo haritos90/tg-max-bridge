@@ -1,4 +1,4 @@
-from tg_max_bridge.messengers import MAX, TG, Inbound
+from tg_max_bridge.messengers import AUDIO, IMAGE, MAX, TG, Inbound, Media
 
 
 def bind_all(state):
@@ -26,13 +26,42 @@ def test_unbound_destination_is_reported_to_sender(world):
                              "connected yet. They need to open the Max bot and press Start.")]
 
 
-def test_attachments_are_not_relayed(world):
+def test_other_attachments_are_not_relayed(world):
     bridge, tg, mx, state = world
     bind_all(state)
     bridge.handle(Inbound(TG, 100, "caption", has_attachments=True))
     bridge.handle(Inbound(TG, 100, None, has_attachments=True))
     assert mx.sent == [(2000, "caption")]
-    assert tg.sent == [(100, "Only text is relayed in this version.")] * 2
+    assert tg.sent == [(100, "Only text, pictures and voice messages are relayed.")] * 2
+
+
+def test_picture_and_voice_cross_with_caption(world):
+    bridge, tg, mx, state = world
+    bind_all(state)
+    bridge.handle(Inbound(TG, 100, "look", media=[Media(IMAGE, "f1"), Media(AUDIO, "f2")]))
+    assert mx.sent == [
+        (2000, (IMAGE, b"bytes-of-f1", "f1.bin", "application/x-test", "look")),
+        (2000, (AUDIO, b"bytes-of-f2", "f2.bin", "application/x-test", None))]
+    assert tg.sent == []
+    bridge.handle(Inbound(MAX, 2000, None, media=[Media(IMAGE, "https://h/p.jpg")]))
+    assert tg.sent == [(100, (IMAGE, b"bytes-of-https://h/p.jpg", "https://h/p.jpg.bin",
+                              "application/x-test", None))]
+
+
+def test_long_caption_goes_as_its_own_message(world):
+    bridge, tg, mx, state = world
+    bind_all(state)
+    long = "x" * 1500
+    bridge.handle(Inbound(TG, 100, long, media=[Media(IMAGE, "f1")]))
+    assert mx.sent[0] == (2000, long) and mx.sent[1][1][4] is None
+
+
+def test_media_failure_is_reported_once(world):
+    bridge, tg, mx, state = world
+    bind_all(state)
+    mx.fail = True
+    bridge.handle(Inbound(TG, 100, "hi", media=[Media(IMAGE, "f1")]))
+    assert tg.sent == [(100, "Delivery to Max failed.")]
 
 
 def test_send_failure_is_reported_to_sender(world):

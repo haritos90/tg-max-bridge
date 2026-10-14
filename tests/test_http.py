@@ -41,3 +41,23 @@ def test_connect_raises_when_no_address_works(monkeypatch):
     conn = h._Connection("example.invalid", 9, timeout=5)
     with pytest.raises(OSError):
         conn.connect()
+
+
+def test_multipart_body_shape(monkeypatch):
+    client = h.JsonClient("https://example.invalid")
+    captured = {}
+
+    def fake_raw(method, url, data, headers, timeout):
+        captured.update(method=method, url=url, data=data, headers=headers)
+        return b'{"ok":true}', "application/json"
+
+    monkeypatch.setattr(client, "_raw", fake_raw)
+    out = client.post_multipart("/sendPhoto", {"chat_id": 5, "caption": None},
+                                "photo", "p.jpg", b"JPG", "image/jpeg")
+    assert out == {"ok": True}
+    assert captured["url"] == "https://example.invalid/sendPhoto"
+    boundary = captured["headers"]["Content-Type"].split("boundary=")[1]
+    body = captured["data"]
+    assert body.startswith(("--" + boundary).encode()) and body.endswith(("--" + boundary + "--\r\n").encode())
+    assert b'name="chat_id"\r\n\r\n5\r\n' in body and b"caption" not in body
+    assert b'name="photo"; filename="p.jpg"\r\nContent-Type: image/jpeg\r\n\r\nJPG\r\n' in body

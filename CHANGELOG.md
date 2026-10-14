@@ -3,6 +3,14 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.8] - 2026-10-14
+
+### Added
+
+- Pictures and voice messages are relayed in both directions, with the
+  caption as text. Max audio that is not OGG Opus arrives on Telegram as an
+  audio file rather than a voice bubble.
+
 ## [0.1.7] - 2026-10-14
 
 ### Changed

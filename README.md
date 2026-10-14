@@ -13,9 +13,12 @@ and user 2 on each messenger. Messages cross messengers, never stay on one:
 | user 2 on Telegram | user 1 on Max |
 | user 2 on Max | user 1 on Telegram |
 
-Text only is relayed, unchanged; a message with other content tells the
-sender so and relays its caption, if any. Link previews are disabled on
-both sides. Nothing but the text crosses: replies go back on the sender's
+Text, pictures and voice messages are relayed unchanged, the caption with
+its picture; a message with other content (files, video, stickers,
+locations) tells the sender so and relays its caption, if any. A voice
+message from Telegram arrives on Max as an audio message; an audio message
+from Max arrives on Telegram as a voice message when it is OGG Opus and as
+an audio file otherwise. Link previews are disabled on both sides. Nothing but the text crosses: replies go back on the sender's
 messenger, and names, ids and bot usernames appear only in the admin's
 Telegram chat.
 
