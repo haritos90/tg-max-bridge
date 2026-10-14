@@ -1,0 +1,18 @@
+# systemd unit for the bridge. Copy to /etc/systemd/system/, adjust the
+# paths, write the environment file, then:
+#   systemctl daemon-reload && systemctl enable --now tg-max-bridge
+[Unit]
+Description=Telegram to Max text bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tg-max-bridge
+EnvironmentFile=/etc/tg-max-bridge.env
+ExecStart=/usr/bin/python3 -m tg_max_bridge
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
