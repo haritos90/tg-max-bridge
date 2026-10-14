@@ -1,4 +1,3 @@
-from tg_max_bridge.bridge import strip_links
 from tg_max_bridge.messengers import MAX, TG, Inbound
 
 
@@ -247,22 +246,8 @@ def test_admin_menu_published_on_binding(world):
     assert tg.menus[-1][0] == 300
 
 
-def test_strip_links():
-    assert strip_links("see https://t.me/x/1 and www.a.ru now") == (
-        "see [link removed] and [link removed] now", 2)
-    assert strip_links("open max.ru/idbot, ok?") == ("open [link removed], ok?", 1)
-    assert strip_links("ftp://h/p and mailto:a@b.c") == ("[link removed] and [link removed]", 2)
-    assert strip_links("no links here. Really") == ("no links here. Really", 0)
-    assert strip_links("try https://a.io/q?x=1! now (b.org) c.de:") == (
-        "try [link removed]! now ([link removed]) [link removed]:", 3)
-    assert strip_links("version 1.2.3 at 10.30") == ("version 1.2.3 at 10.30", 0)
-    assert strip_links("Go to https://x.com. Then a@b.com") == (
-        "Go to [link removed]. Then [link removed]", 2)
-
-
-def test_links_are_not_relayed(world):
+def test_links_are_relayed_unchanged(world):
     bridge, tg, mx, state = world
     bind_all(state)
     bridge.handle(Inbound(TG, 100, "look https://example.org/a?b=1"))
-    assert mx.sent == [(2000, "look [link removed]")]
-    assert tg.sent == [(100, "Links are not relayed; 1 removed.")]
+    assert mx.sent == [(2000, "look https://example.org/a?b=1")] and tg.sent == []

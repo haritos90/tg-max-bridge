@@ -3,6 +3,12 @@
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 [Semantic Versioning](https://semver.org).
 
+## [0.1.7] - 2026-10-14
+
+### Changed
+
+- Links are relayed again, unchanged; previews stay disabled.
+
 ## [0.1.6] - 2026-10-14
 
 ### Changed

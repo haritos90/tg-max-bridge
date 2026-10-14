@@ -13,10 +13,11 @@ and user 2 on each messenger. Messages cross messengers, never stay on one:
 | user 2 on Telegram | user 1 on Max |
 | user 2 on Max | user 1 on Telegram |
 
-Text only is relayed; a message with other content tells the sender so and
-relays its caption, if any. Links are not relayed: every URL or domain in
-the text is replaced by `[link removed]` and the sender is told how many
-were removed. Link previews are disabled on both sides.
+Text only is relayed, unchanged; a message with other content tells the
+sender so and relays its caption, if any. Link previews are disabled on
+both sides. Nothing but the text crosses: replies go back on the sender's
+messenger, and names, ids and bot usernames appear only in the admin's
+Telegram chat.
 
 ## Requirements
 
