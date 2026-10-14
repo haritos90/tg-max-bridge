@@ -10,12 +10,20 @@ class FakeMessenger:
     def __init__(self, name):
         self.name = name
         self.sent = []  # (user_id, text)
+        self.buttons = []  # (user_id, rows) per send carrying buttons
+        self.answered = []  # (callback_id, text, outcome)
         self.fail = False
 
-    def send(self, user_id, text):
+    def send(self, user_id, text, buttons=None):
         if self.fail:
             raise RuntimeError("down")
         self.sent.append((user_id, text))
+        if buttons:
+            self.buttons.append((user_id, buttons))
+        return len(self.sent)
+
+    def answer(self, ev, text, outcome=None):
+        self.answered.append((ev.callback_id, text, outcome))
 
 
 @pytest.fixture

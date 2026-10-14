@@ -25,6 +25,9 @@ class Inbound:
     username: str | None = None
     name: str = ""
     started: bool = False  # Start pressed, no message body
+    callback: str | None = None  # button payload
+    callback_id: str | None = None
+    message_id: int | None = None  # message carrying the button
 
 
 class Telegram:
@@ -41,7 +44,7 @@ class Telegram:
 
     def poll(self):
         params = {"timeout": POLL_TIMEOUT, "offset": self.offset,
-                  "allowed_updates": '["message"]'}
+                  "allowed_updates": '["message","callback_query"]'}
         data = self.client.get("/getUpdates", params, timeout=POLL_TIMEOUT + 30)
         events = []
         for upd in data.get("result", []):
@@ -51,11 +54,32 @@ class Telegram:
                 events.append(event)
         return events
 
-    def send(self, user_id, text):
-        self.client.post("/sendMessage", {"chat_id": user_id, "text": text})
+    def send(self, user_id, text, buttons=None):
+        """buttons: rows of (label, payload); returns the message id."""
+        body = {"chat_id": user_id, "text": text}
+        if buttons:
+            body["reply_markup"] = {"inline_keyboard": [
+                [{"text": label, "callback_data": data} for label, data in row]
+                for row in buttons]}
+        return self.client.post("/sendMessage", body)["result"]["message_id"]
+
+    def answer(self, ev, text, outcome=None):
+        """Acknowledge a button press; outcome replaces the message text."""
+        self.client.post("/answerCallbackQuery",
+                         {"callback_query_id": ev.callback_id, "text": text})
+        if outcome is not None and ev.message_id is not None:
+            self.client.post("/editMessageText", {
+                "chat_id": ev.user_id, "message_id": ev.message_id, "text": outcome})
 
 
 def parse_telegram(upd):
+    cq = upd.get("callback_query")
+    if cq:
+        sender = cq.get("from") or {}
+        msg = cq.get("message") or {}
+        return Inbound(TG, sender["id"], None, username=sender.get("username"),
+                       callback=cq.get("data"), callback_id=cq.get("id"),
+                       message_id=msg.get("message_id"))
     msg = upd.get("message") or {}
     chat = msg.get("chat") or {}
     sender = msg.get("from") or {}
@@ -99,8 +123,12 @@ class Max:
                 events.append(event)
         return events
 
-    def send(self, user_id, text):
+    def send(self, user_id, text, buttons=None):
+        # Buttons are a Telegram-side feature for now.
         self.client.post("/messages", {"text": text}, {"user_id": user_id})
+
+    def answer(self, ev, text, outcome=None):
+        pass
 
 
 def parse_max(upd):

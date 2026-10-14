@@ -49,3 +49,12 @@ def test_max_started_and_other_updates():
             "message": {"sender": {"user_id": 1, "first_name": "x", "is_bot": False},
                         "recipient": {"chat_id": 5, "chat_type": "chat"}, "body": {}}}
     assert parse_max(chat) is None
+
+
+def test_telegram_callback():
+    ev = parse_telegram({"update_id": 2, "callback_query": {
+        "id": "c9", "data": "approve:1:2", "from": {"id": 100, "is_bot": False, "first_name": "A"},
+        "message": {"message_id": 44}}})
+    assert (ev.messenger, ev.user_id, ev.callback, ev.callback_id, ev.message_id) == (
+        TG, 100, "approve:1:2", "c9", 44)
+    assert ev.text is None and not ev.started

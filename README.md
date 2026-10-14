@@ -43,15 +43,23 @@ messenger:
 
 | Command | Effect |
 |---|---|
-| `/status` | The four slots and the pending requests |
-| `/approve <request> <1\|2>` | Bind the requesting account to a slot |
+| `/status` | Who is connected on each messenger and who is waiting |
+| `/approve <request>` | Connect the requesting account to the one free seat on its messenger |
+| `/approve <request> <1\|2>` | Connect it as user 1 (the admin) or user 2 (the other person) |
 | `/deny <request>` | Ignore the requesting account |
-| `/unbind <tg\|max> <1\|2>` | Clear a slot bound at runtime; configured slots stay |
+| `/unbind <tg\|max> <1\|2>` | Disconnect a seat bound at runtime; configured seats stay |
 | `/bots` | The usernames of the two bot accounts |
 | `/help` | The command list |
 
+On Telegram a request arrives with buttons, so the commands are a fallback.
+When one seat on the account's messenger is already taken, the message
+offers Connect and Ignore and the account takes the free seat. When both
+seats are free, it asks whether the account is the admin's own, with the
+answers "Yes, it is me", "No, the other person" and Ignore. A pressed button
+replaces the request text with the outcome.
+
 Bindings and denials are persisted in the state file; pending requests live
-in memory and are recreated by the next message from that account. A request
+in memory, so a restart drops them and the account has to write again. A request
 that arrives before the admin is bound on Telegram is shown to the admin on
 binding. Any other text from a bound account is relayed. The pairing flow is
 described under Configuration.
@@ -87,13 +95,13 @@ The setup runs in this order:
    unknown.
 3. Both Max accounts contact the Max bot: press Start or send any message.
    Each contact reaches the admin on Telegram as a numbered request with the
-   account's name and id, and the admin answers from Telegram with
-   `/approve <request> 1` for the admin's own Max account and
-   `/approve <request> 2` for user 2. The same flow binds user 2 on
-   Telegram, unless `TG_USER_2` is set.
-4. Every other account is ignored. Before a messenger's two slots are bound,
+   account's name and id and buttons to answer it (Usage). The first Max
+   account is the only one the admin has to identify as their own or the
+   other person's; the second takes the remaining seat with one tap. The
+   same flow binds user 2 on Telegram, unless `TG_USER_2` is set.
+4. Every other account is ignored. Before a messenger's two seats are bound,
    an unknown account gets a one-line reply and the admin gets the request to
-   approve or deny; once both slots are bound, an unknown account gets no
+   approve or deny; once both seats are bound, an unknown account gets no
    reply and no request is raised. A denied account stays ignored.
 
 The Max platform host presents a certificate chain whose root is absent from

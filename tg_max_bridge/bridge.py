@@ -10,12 +10,14 @@ log = logging.getLogger(__name__)
 
 ADMIN_SLOT = 1
 SLOTS = (1, 2)
+WHO = {1: "user 1, the admin", 2: "user 2, the other person"}
 
 HELP = (
-    "/status  slots and pending requests\n"
-    "/approve <request> <1|2>  bind the account to a slot\n"
+    "/status  who is connected and who is waiting\n"
+    "/approve <request>  connect the account to the free seat\n"
+    "/approve <request> <1|2>  connect it as you (1) or the other person (2)\n"
     "/deny <request>  ignore the account\n"
-    "/unbind <tg|max> <1|2>  clear a slot bound at runtime\n"
+    "/unbind <tg|max> <1|2>  forget a connected account\n"
     "/bots  the two bot accounts"
 )
 
@@ -54,6 +56,10 @@ class Bridge:
                 result[slot] = uid
         return result
 
+    def free_slots(self, messenger):
+        taken = self.slots(messenger)
+        return [slot for slot in SLOTS if slot not in taken]
+
     def slot_of(self, messenger, user_id):
         for slot, uid in self.slots(messenger).items():
             if uid == user_id:
@@ -71,6 +77,11 @@ class Bridge:
 
     def _handle(self, ev):
         slot = self.slot_of(ev.messenger, ev.user_id)
+        if ev.callback is not None:
+            # Buttons exist only on admin messages.
+            if slot == ADMIN_SLOT:
+                self._callback(ev)
+            return
         if slot is None:
             slot = self._bind_by_username(ev)
             if slot is not None:
@@ -79,7 +90,7 @@ class Bridge:
             self._request(ev)
             return
         if ev.started:
-            self._reply(ev, "Connected as user %d." % slot)
+            self._reply(ev, "You are connected as %s." % WHO[slot])
             return
         if slot == ADMIN_SLOT and ev.text and self._command(ev):
             return
@@ -95,10 +106,11 @@ class Bridge:
                 continue
             if ev.username.lower() == name:
                 self.state.bind(TG, slot, ev.user_id)
-                self._reply(ev, "Connected as user %d." % slot)
+                self._reply(ev, "You are connected as %s." % WHO[slot])
                 if slot == ADMIN_SLOT and self.pending:
                     # Requests that waited for the admin.
-                    self._reply(ev, self._status())
+                    for req in list(self.pending.values()):
+                        self._notify_admin(req)
                 return slot
         return None
 
@@ -116,11 +128,44 @@ class Bridge:
         self._next += 1
         self.pending[req.number] = req
         self._reply(ev, "Request sent to the admin.")
-        self._notify_admin(
-            "Request #%d from %s: %s\n/approve %d 1  as user 1\n"
-            "/approve %d 2  as user 2\n/deny %d"
-            % (req.number, LABELS[ev.messenger], describe(ev),
-               req.number, req.number, req.number))
+        self._notify_admin(req)
+
+    def _notify_admin(self, req):
+        admin = self.slots(TG).get(ADMIN_SLOT)
+        if admin is None:
+            log.warning("no admin bound on Telegram; request #%d waits", req.number)
+            return
+        n = req.number
+        text = "Request #%d: %s wrote to the %s bot." % (
+            n, describe(req.event), LABELS[req.event.messenger])
+        free = self.free_slots(req.event.messenger)
+        if len(free) == 1:
+            # Only one seat left: no question.
+            text += "\nConnect as %s?" % WHO[free[0]]
+            buttons = [[("Connect", "approve:%d:%d" % (n, free[0])),
+                        ("Ignore", "deny:%d" % n)]]
+        else:
+            text += "\nIs this your account?"
+            buttons = [[("Yes, it is me", "approve:%d:1" % n),
+                        ("No, the other person", "approve:%d:2" % n)],
+                       [("Ignore", "deny:%d" % n)]]
+        try:
+            self.messengers[TG].send(admin, text, buttons)
+        except Exception as e:
+            log.error("notifying the admin failed: %s", e)
+
+    # -- admin commands -----------------------------------------------------
+
+    def _callback(self, ev):
+        parts = ev.callback.split(":")
+        req = self.pending.get(int(parts[1])) if len(parts) > 1 and parts[1].isdigit() else None
+        if req is None:
+            self._answer(ev, "This request is already handled.", "Already handled.")
+        elif parts[0] == "approve" and len(parts) == 3 and parts[2] in ("1", "2"):
+            outcome = self._approve(req, int(parts[2]))
+            self._answer(ev, "Done", outcome)
+        elif parts[0] == "deny":
+            self._answer(ev, "Done", self._deny(req))
 
     def _command(self, ev):
         parts = ev.text.split()
@@ -130,9 +175,22 @@ class Bridge:
         elif cmd == "/help":
             self._reply(ev, HELP)
         elif cmd == "/approve":
-            self._approve(ev, parts[1:])
+            req = self._take(ev, parts[1:])
+            if req is None:
+                return True
+            free = self.free_slots(req.event.messenger)
+            if len(parts) == 2 and len(free) == 1:
+                slot = free[0]  # the one seat left
+            elif len(parts) == 3 and parts[2] in ("1", "2"):
+                slot = int(parts[2])
+            else:
+                self._reply(ev, "Usage: /approve <request> [1|2]")
+                return True
+            self._reply(ev, self._approve(req, slot))
         elif cmd == "/deny":
-            self._deny(ev, parts[1:])
+            req = self._take(ev, parts[1:])
+            if req is not None:
+                self._reply(ev, self._deny(req))
         elif cmd == "/unbind":
             self._unbind(ev, parts[1:])
         elif cmd == "/bots":
@@ -142,29 +200,19 @@ class Bridge:
             return False
         return True
 
-    def _approve(self, ev, args):
-        req = self._take(ev, args)
-        if req is None:
-            return
-        if len(args) != 2 or args[1] not in ("1", "2"):
-            self._reply(ev, "Usage: /approve <request> <1|2>")
-            return
-        slot = int(args[1])
+    def _approve(self, req, slot):
+        """Bind the request's account; the outcome sentence."""
         target = req.event
         self.state.bind(target.messenger, slot, target.user_id)
         del self.pending[req.number]
-        self._reply(ev, "Bound %s account %d as user %d."
-                    % (LABELS[target.messenger], target.user_id, slot))
-        self._reply(target, "Connected as user %d." % slot)
+        self._reply(target, "You are connected as %s." % WHO[slot])
+        return "%s on %s is now %s." % (describe(target), LABELS[target.messenger], WHO[slot])
 
-    def _deny(self, ev, args):
-        req = self._take(ev, args)
-        if req is None:
-            return
+    def _deny(self, req):
         target = req.event
         self.state.deny(target.messenger, target.user_id)
         del self.pending[req.number]
-        self._reply(ev, "Denied %s account %d." % (LABELS[target.messenger], target.user_id))
+        return "%s on %s is ignored from now on." % (describe(target), LABELS[target.messenger])
 
     def _unbind(self, ev, args):
         if len(args) != 2 or args[0] not in LABELS or args[1] not in ("1", "2"):
@@ -172,13 +220,14 @@ class Bridge:
             return
         messenger, slot = args[0], int(args[1])
         if (messenger, slot) in self.cfg.fixed:
-            self._reply(ev, "User %d on %s is configured, not bound." % (slot, LABELS[messenger]))
+            self._reply(ev, "User %d on %s is set in the configuration and cannot be unbound."
+                        % (slot, LABELS[messenger]))
             return
         if slot not in self.state.bindings[messenger]:
-            self._reply(ev, "User %d on %s is not bound." % (slot, LABELS[messenger]))
+            self._reply(ev, "User %d on %s is not connected." % (slot, LABELS[messenger]))
             return
         self.state.unbind(messenger, slot)
-        self._reply(ev, "Unbound user %d on %s." % (slot, LABELS[messenger]))
+        self._reply(ev, "User %d on %s is disconnected." % (slot, LABELS[messenger]))
 
     def _take(self, ev, args):
         """Pending request named by the first argument, or None."""
@@ -191,11 +240,15 @@ class Bridge:
         lines = []
         for m in (TG, MAX):
             slots = self.slots(m)
-            lines.append("%s: user 1 = %s, user 2 = %s" % (
-                LABELS[m], slots.get(1, "unbound"), slots.get(2, "unbound")))
+            for slot in SLOTS:
+                uid = slots.get(slot)
+                lines.append("%s, %s: %s" % (
+                    LABELS[m], WHO[slot], "id %d" % uid if uid else "not connected"))
+        if not self.pending:
+            lines.append("No one is waiting.")
         for req in self.pending.values():
-            lines.append("Request #%d from %s: %s"
-                         % (req.number, LABELS[req.event.messenger], describe(req.event)))
+            lines.append("Request #%d: %s wrote to the %s bot."
+                         % (req.number, describe(req.event), LABELS[req.event.messenger]))
         return "\n".join(lines)
 
     # -- relay --------------------------------------------------------------
@@ -222,20 +275,16 @@ class Bridge:
         except Exception as e:
             log.error("reply to %s %s failed: %s", ev.messenger, ev.user_id, e)
 
-    def _notify_admin(self, text):
-        admin = self.slots(TG).get(ADMIN_SLOT)
-        if admin is None:
-            log.warning("no admin bound on Telegram; request not delivered: %s", text)
-            return
+    def _answer(self, ev, text, outcome):
         try:
-            self.messengers[TG].send(admin, text)
+            self.messengers[ev.messenger].answer(ev, text, outcome)
         except Exception as e:
-            log.error("notifying the admin failed: %s", e)
+            log.error("answering %s callback failed: %s", ev.messenger, e)
 
 
 def describe(ev):
     parts = [ev.name or "no name"]
     if ev.username:
         parts.append("@" + ev.username)
-    parts.append("id %d" % ev.user_id)
+    parts.append("(id %d)" % ev.user_id)
     return " ".join(parts)

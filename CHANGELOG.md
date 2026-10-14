@@ -10,9 +10,12 @@ Format: [Keep a Changelog](https://keepachangelog.com), versions follow
 - `TG_ADMIN` takes a Telegram username as well as an id; the admin is bound
   on the first message, and requests reach the bound account.
 - `/unbind` and `/bots` admin commands.
+- Requests arrive on Telegram with buttons; `/approve <request>` without a
+  seat number takes the one free seat.
 
 ### Changed
 
+- Replies and `/status` name the seats as the admin and the other person.
 - A configured username binds a slot once; the stored id is authoritative.
 - An unknown account on a messenger whose two slots are bound is ignored
   silently.
