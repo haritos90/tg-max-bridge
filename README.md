@@ -125,9 +125,9 @@ header, as the platform requires since 2026.
     ruff check . && pytest -q
 
 Tests run with fake messengers and no network. Contribution terms:
-CONTRIBUTING.md. Releases are `v*` tags on main; the version is in
-tg_max_bridge/__init__.py and pyproject.toml, with the changes in
-CHANGELOG.md.
+CONTRIBUTING.md. The version is in tg_max_bridge/__init__.py and
+pyproject.toml, with the changes in CHANGELOG.md; every change bumps the
+patch number.
 
 ## License
 

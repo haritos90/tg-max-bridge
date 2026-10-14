@@ -1,7 +1,13 @@
 # Changelog
 
 Format: [Keep a Changelog](https://keepachangelog.com), versions follow
-[Semantic Versioning](https://semver.org).
+[Semantic Versioning](https://semver.org): the patch number counts changes
+within a minor version. The version lives in tg_max_bridge/__init__.py and
+pyproject.toml; no tags are published.
+
+## [0.2.0] - 2026-10-14
+
+Collects 0.1.1 to 0.1.8 as the first feature release after 0.1.0.
 
 ## [0.1.8] - 2026-10-14
 
